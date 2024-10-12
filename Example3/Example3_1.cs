@@ -1,29 +1,19 @@
 public class Player
 {
-	private List<Vector2> activeWalkPath = null;
-	private bool isMoving;
-	private Vector2 currentPosition;
-	private Player currentEnemy;
+	// - Извлек механизм поиска врага и передвижения в отдельные компоненты
+	private readonly IMovable _movable = new Movable();
+	private readonly ITargetFinder _targetFinder = new TargetFinder;
 
 	public void Update()
 	{
-		if (currentEnemy != null)
+		if (_targetFinder.TryFindTarget(out var enemy))
 		{
-			UpdatePathToEnemy();
-		}
-	}
-
-	private void UpdatePathToEnemy()
-	{
-		activeWalkPath = <много строк кода по созданию пути>;
-		if (activeWalkPath == null)
-		{
-			isMoving = false;
-			currentEnemy = null;
+			_movable.UpdatePathToEnemy(enemy);
 		}
 		else
 		{
-			isMoving = true;
+			_movable.Stop();
 		}
 	}
 }
+
