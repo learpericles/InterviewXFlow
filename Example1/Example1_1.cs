@@ -1,15 +1,43 @@
 public class Player
 {
-    public int Health {
-        get; private set;
-    }
+    // Здоровье сделал приватным полем, так как в рамках данного примера нет необходимости предоставлять доступ к полю
+    // Внешний доступ к данным поля с большой вероятностью понадобиться в будущем, но нам ничего не мешает предоставить
+    // read-only доступ к поле в будующем
+    private int _health;
 
     public Player(int health) {
-        Health = health;
+        _health = health;
     }
 
-    public void SetHealth(int value) {
-        Health = value;
+    // Основная задача метода заключалась в нанесении урона игроку, при этом сама конструкция метода имела
+    // расширенные полномочию на модификацию поля health.
+    //
+    // Потенциально, в рамках данных модификаций, урезана возможность восполнять здоровье игроку.
+    // Данную потребность лучше реализовать за счет добавления нового метода Heal(int healValue).
+    //
+    // Общие мысли:
+    // В большинстве игр, нанесение урона является центральным элемент кор-геймплея игры и
+    // поэтому может агрессивно расширяться в процессе разработки. Рекомендуется выделить отдельную систему для
+    // обработки нанесения урона
+    //
+    // Произведены следующие модификации метода:
+    // - Урезание полномочий метода. SetHealth -> TakeDamage
+    // - Добавлена валидация входящего параметра
+    // - Добавлена валидация поля health
+    public void TakeDamage(int damage) {
+        if (damage <= 0)
+        {
+            // Incorrect damage value
+            return;
+        }
+
+        if (_health == 0)
+        {
+            // Player is dead already
+            return;
+        }
+
+        _health = Math.Max(_health - damage, 0);
     }
 }
 
@@ -18,13 +46,17 @@ class Program
     private const int NewPayerHealth = 100;
     private const int Damage = 10;
 
-    protected static Player player;
+    // В рамках примера не имеет смысла классу Program иметь статическое поле Player. Также нет смысла полю player иметь
+    // protected модификатор доступа
+    //
+    // Произведено следующее изменение:
+    // - Убрано статическое поле player
 
     public static void Main(string[] args)
     {
         // Создаем нового игрока.
-        player = new Player(NewPayerHealth);
+        var player = new Player(NewPayerHealth);
         // Ударяем игрока.
-        player.SetHealth(player.Health - Damage);
+        player.TakeDamage(Damage);
     }
 }
