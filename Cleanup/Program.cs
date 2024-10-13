@@ -1,90 +1,108 @@
 ﻿namespace Cleanup
 {
+    // Основные цели рефакторинга:
+    // Внедрение зависимостей замест использования реализаций напрямую
+    // Декомпозиция метода CleanupTest
+    // Снижение комплекности состояния класса за счет использования локальных переменных
     internal class Program
     {
         private const double TargetChangeTime = 1;
 
+        // Убраны _lockedCandidateTarget и _lockedTarget, так как, в соответствии с текущим примером, они всегда будут null
+        private ITargetable _previousTarget;
         private double _previousTargetSetTime;
-        private bool _isTargetSet;
-        private dynamic _lockedCandidateTarget;
-        private dynamic _lockedTarget;
-        private dynamic _target;
-        private dynamic _previousTarget;
-        private dynamic _activeTarget;
-        private dynamic _targetInRangeContainer;
+
+        private ITargetFinder _targetInRangeContainer;
+        private ITimeProvider _timeProvider;
+
+        private ITargetable CurrentTarget => TargetableEntity.Selected;
+
+        public Program(ITargetFinder targetFinder, ITimeProvider timeProver)
+        {
+            _targetInRangeContainer = targetFinder;
+            _timeProvider = timeProver;
+        }
 
         public void CleanupTest(Frame frame)
         {
+            ITargetable target = null;
+
             try
             {
-                if (_lockedCandidateTarget && !_lockedCandidateTarget.CanBeTarget)
-                {
-                    _lockedCandidateTarget = null;
-                }
-
-                if (_lockedTarget && !_lockedTarget.CanBeTarget)
-                {
-                    _lockedTarget = null;
-                }
-
-                _isTargetSet = false;
-				// Sets _activeTarget field
-                TrySetActiveTargetFromQuantum(frame);
-
-                // If target exists and can be targeted, it should stay within Target Change Time since last target change
-                if (_target && _target.CanBeTarget && Time.time - _previousTargetSetTime < TargetChangeTime)
-                {
-                    _isTargetSet = true;
-                }
-                _previousTarget = _target;
-
-                if (!_isTargetSet)
-                {
-                    if (_lockedTarget && _lockedTarget.CanBeTarget)
-                    {
-                        _target = _lockedTarget;
-                        _isTargetSet = true;
-                        return;
-                    }
-                }
-
-
-                if (!_isTargetSet)
-                {
-                    if (_activeTarget && _activeTarget.CanBeTarget)
-                    {
-                        _target = _activeTarget;
-                        _isTargetSet = true;
-                        return;
-                    }
-                }
-
-                if (!_isTargetSet)
-                {
-                    _target = _targetInRangeContainer.GetTarget();
-                    if (_target)
-                    {
-                        _isTargetSet = true;
-                    }
-                }
+                TryUpdateTarget(frame, out target);
+            }
+            catch (Exception ex)
+            {
+                // Handle exception
             }
             finally
             {
-                if (_isTargetSet)
+                if (IsTargetValid(target) && _previousTarget != target)
                 {
-                    if (_previousTarget != _target)
-                    {
-                        _previousTargetSetTime = Time.time;
-                    }
+                    _previousTargetSetTime = _timeProvider.GetTimeMilli();
                 }
-                else
-                {
-                    _target = null;
-                }
-                TargetableEntity.Selected = _target;
+
+                TargetableEntity.Selected = target;
             }
+        }
+
+        private bool TryUpdateTarget(Frame frame, out ITargetable target)
+        {
+            target = null;
+
+            if (IsTargetValid(CurrentTarget) && !CanChangeTarget())
+            {
+                return false;
+            }
+
+            _previousTarget = CurrentTarget;
+
+            if (TryGetActiveTargetFromQuantum(frame, out var activateTargetCandidate) && IsTargetValid(activateTargetCandidate))
+            {
+                target = activateTargetCandidate;
+                return true;
+            }
+
+            if (TryFindTarget(out var targetCandidate))
+            {
+                target = targetCandidate;
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool CanChangeTarget()
+        {
+            return (_timeProvider.GetTimeMilli() - _previousTargetSetTime) >= TargetChangeTime;
+        }
+
+        private bool IsTargetValid(ITargetable target)
+        {
+            return target && target.CanBeTarget;
+        }
+
+        private bool TryFindTarget(out ITargetable target)
+        {
+            target = _targetInRangeContainer.GetTarget();
+            return IsTargetValid(target);
         }
 
         // MORE CLASS CODE
     }
+}
+
+public interface ITargetable
+{
+    public bool CanBeTarget { get; set; }
+}
+
+public interface ITargetFinder
+{
+    public ITargetable GetTarget();
+}
+
+public interface ITimeProvider
+{
+    public double GetTimeMilli();
 }
